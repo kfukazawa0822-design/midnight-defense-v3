@@ -1544,7 +1544,15 @@ function showScreen(id){
   }
   // BGM切り替え
   if(id==='title')  BGM.play('title');
-  if(id==='stage')  BGM.play('select');
+  if(id==='stage'){
+    // ステージセレクト画面は2秒後に select BGM を流す
+    // 2秒以内に別画面へ遷移した場合はキャンセルする
+    if(window._selectBgmTimer) clearTimeout(window._selectBgmTimer);
+    window._selectBgmTimer = setTimeout(()=>{ window._selectBgmTimer=null; BGM.play('select'); }, 2000);
+  } else {
+    // stage 以外の画面へ遷移したら pending タイマーをキャンセル
+    if(window._selectBgmTimer){ clearTimeout(window._selectBgmTimer); window._selectBgmTimer=null; }
+  }
   if(id==='result') BGM.play('result');
   if(id==='endlessResult') BGM.play('result');
   if(id==='stage'){
@@ -1848,6 +1856,8 @@ const ENDLESS_TUT = [
 let etCurrentPage = 0;
 
 function showEndlessTutorial() {
+  BGM.stopAll();
+  if(window._selectBgmTimer){ clearTimeout(window._selectBgmTimer); window._selectBgmTimer=null; }
   etCurrentPage = 0;
   renderEndlessTutPage(0);
   document.getElementById('endlessTutOverlay').classList.add('active');
@@ -1961,6 +1971,8 @@ const STAGE1_TUT = [
 let s1tCurrentPage = 0;
 
 function showStage1Tutorial() {
+  BGM.stopAll();
+  if(window._selectBgmTimer){ clearTimeout(window._selectBgmTimer); window._selectBgmTimer=null; }
   s1tCurrentPage = 0;
   renderStage1TutPage(0);
   document.getElementById('endlessTutOverlay').classList.add('active');
@@ -2037,6 +2049,8 @@ const TUTORIAL_DATA={
 let pendingStage=null;
 
 function showTutorial(si){
+  BGM.stopAll();
+  if(window._selectBgmTimer){ clearTimeout(window._selectBgmTimer); window._selectBgmTimer=null; }
   const stId=si+1;
   // ステージ1はオリジナル2枚スライドチュートリアル
   if(stId===1){
@@ -3180,11 +3194,31 @@ function showCDNum(n){
     cn.style.transform='scale(0.85)';
     cn.style.opacity='0.08';
   });
+  // カウントダウン1表示のタイミングで BGM を約820ms かけてフェードアウト
+  if(n===1) _fadeBGMOut(820);
   cdTimer=setTimeout(()=>showCDNum(n-1),820);
+}
+/** BGM を durationMs かけて音量0にしてから停止する（BGM.setVolume / BGM.stopAll を使用） */
+function _fadeBGMOut(durationMs){
+  if(window._bgmFadeTimer){ clearInterval(window._bgmFadeTimer); window._bgmFadeTimer=null; }
+  const steps = 20;
+  const interval = durationMs / steps;
+  let step = 0;
+  window._bgmFadeTimer = setInterval(()=>{
+    step++;
+    BGM.setVolume(Math.max(0, 1 - step / steps));
+    if(step >= steps){
+      clearInterval(window._bgmFadeTimer);
+      window._bgmFadeTimer = null;
+      BGM.stopAll();
+    }
+  }, interval);
 }
 function triggerClear(){
   cdActive=false;document.getElementById('cd-overlay').style.display='none';
   gs.running=false;gs.cleared=true;clearBurst();
+  if(window._bgmFadeTimer){ clearInterval(window._bgmFadeTimer); window._bgmFadeTimer=null; }
+  BGM.stopAll();
   Sound.se('clear');
   // クリア前の解放状態を記録してから保存
   const _wasUnlocked = Save.isEndlessUnlocked();
@@ -3199,6 +3233,8 @@ function triggerClear(){
 }
 function triggerGO(){
   gs.running=false;
+  if(window._bgmFadeTimer){ clearInterval(window._bgmFadeTimer); window._bgmFadeTimer=null; }
+  BGM.stopAll();
   Sound.se('gameover');
   document.getElementById('go-overlay').style.display='flex';
   setTimeout(()=>{
